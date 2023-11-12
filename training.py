@@ -5,34 +5,27 @@ Created on Tue Aug 15 16:53:20 2023
 
 @author: julien
 """
-import scipy
-
+# Imports 
 import tensorflow as tf
 from tensorflow import keras
-
 import numpy as np
 import matplotlib.pyplot as plt
-import sys,os
-from importlib import reload
-import cv2
 
-import tensorflow_hub as hub
-
+# Hyper parameters 
 CLASSES=['A', 'B']
-
 TRAINING_DATA_DIR = str("Dataset/train/")
-VALIDATION_DATA_DIR = str("Dataset/test/")
+VALIDATION_DATA_DIR = str("Dataset/test/")  # Use test as validation 
 IMAGE_SHAPE = (28, 28) # (height, width) in no. of pixels
 
+# Dataset loader
 datagen_kwargs = dict(rescale=1./255)
-
 train_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**datagen_kwargs)
 train_generator = train_datagen.flow_from_directory(TRAINING_DATA_DIR, shuffle=True,target_size=IMAGE_SHAPE, class_mode="categorical",color_mode='grayscale', )
 valid_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**datagen_kwargs)
 valid_generator = valid_datagen.flow_from_directory(VALIDATION_DATA_DIR, shuffle=True,target_size=IMAGE_SHAPE, class_mode="categorical", color_mode='grayscale',)
 
+# Model 
 model = keras.models.Sequential()
-
 model.add( keras.layers.Input((IMAGE_SHAPE[0],IMAGE_SHAPE[1],1)) )
 
 # # model.add( keras.layers.Conv2D(32, (3,3),  activation='relu') )
@@ -55,7 +48,6 @@ model.add( keras.layers.Conv2D(32, (3,3),  activation='relu') )
 model.add( keras.layers.MaxPooling2D((2,2)))
 model.add( keras.layers.Dropout(0.2))
 
-
 model.add( keras.layers.Flatten())
 model.add( keras.layers.Dense(256, activation='relu'))
 model.add( keras.layers.Dropout(0.5))
@@ -64,17 +56,10 @@ model.add( keras.layers.Dense(2, activation='softmax'))
 
 model.summary()
 
+# Callbacks 
 bestmodel_callback = tf.keras.callbacks.ModelCheckpoint(filepath='outputs/best_model.h5', verbose=0, monitor='val_accuracy', save_best_only=True)
 
-#model = tf.keras.Sequential([
-  #hub.KerasLayer("https://tfhub.dev/google/tf2-preview/mobilenet_v2/feature_vector/4",
-  #output_shape=[1280],
-  #trainable=False),
-  #tf.keras.layers.Dropout(0.4),
-  #tf.keras.layers.Dense(train_generator.num_classes, activation='softmax')
-#])
-#model.build([None, 224, 224, 3])
-#model.summary()
+# Optimizer 
 optimizer = tf.keras.optimizers.Adam(lr=1e-3)
 model.compile(optimizer=optimizer,
               loss='categorical_crossentropy',
@@ -84,6 +69,7 @@ steps_per_epoch = np.ceil(train_generator.samples/train_generator.batch_size)
 
 val_steps_per_epoch = np.ceil(valid_generator.samples/valid_generator.batch_size)
 
+# Train 
 hist = model.fit(
  train_generator, 
  epochs=150,
@@ -94,13 +80,11 @@ hist = model.fit(
  callbacks = [bestmodel_callback]
 ).history
 
-
-
+# Load best model 
 model = tf.keras.models.load_model(
-       ('outputs/best_model.h5'),
-       custom_objects={'KerasLayer':hub.KerasLayer}
+       ('outputs/best_model.h5')
 )
-
+# Evaluate best model 
 final_loss, final_accuracy = model.evaluate(valid_generator, steps = val_steps_per_epoch)
 print("Final loss: {:.2f}".format(final_loss))
 print("Final accuracy: {:.2f}%".format(final_accuracy * 100))
